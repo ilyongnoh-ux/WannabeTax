@@ -2,14 +2,15 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-import requests  
+import requests
 import json
 
-# --- [설정] 페이지 기본 세팅 ---
+# ==========================================
+# 1. 페이지 기본 설정
+# ==========================================
 st.set_page_config(
     page_title="Wannabe Tax - 상속세 시뮬레이터",
-    #page_icon="🧮", # 탭 아이콘도 계산기로 변경
-    page_icon="🖩", # 탭 아이콘도 계산기로 변경
+    page_icon="🖩", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -17,22 +18,18 @@ st.set_page_config(
 # ==========================================
 # ⚠️ [필수] 구글 앱스 스크립트 URL
 # ==========================================
-GAS_URL = "https://script.google.com/macros/s/AKfycbxQWMaMqdhZlFGa1hIG0GA6hEVv1xP7XA63jjL_Y-SiIUZJ0jbWyPoVLBeIZDPuX21t/exec" 
+GAS_URL = "https://script.google.com/macros/s/AKfycbxQWMaMqdhZlFGa1hIG0GA6hEVv1xP7XA63jjL_Y-SiIUZJ0jbWyPoVLBeIZDPuX21t/exec"
 
-
-# --- [스타일] CSS (Wannabe 통일성 + 반응형 + 사이드바 최적화) ---
+# ==========================================
+# 2. CSS 스타일링
+# ==========================================
 st.markdown("""
     <style>
-    /* 1. 전체 컨테이너 및 폰트 */
+    /* 1. 기본 폰트 및 배경 */
     .main { background-color: #0E1117; color: #FAFAFA; }
     html, body, [class*="css"], .stMarkdown, .stButton, .stNumberInput, .stSlider, .stTextInput, .stTextArea {
         font-family: 'Helvetica Neue', sans-serif;
-        font-size: clamp(14px, 1.1vw, 18px) !important; 
-    }
-
-    /* [핵심] 사이드바 전체를 컨테이너 쿼리 영역으로 지정 */
-    [data-testid="stSidebarUserContent"] {
-        container-type: inline-size;
+        font-size: clamp(14px, 1.1vw, 18px) !important;
     }
 
     /* 2. 메인 타이틀 */
@@ -42,16 +39,15 @@ st.markdown("""
         font-size: clamp(1.8rem, 6vw, 4rem); line-height: 1.2;
     }
 
-    /* 3. 사이드바 타이틀 (반응형) */
+    /* 3. 사이드바 타이틀 */
     .sidebar-container { width: 100%; margin-bottom: 10px; text-align: center; }
     .responsive-sidebar-title {
         font-weight: 800; color: #4CAF50; white-space: nowrap;
-        /* 사이드바 폭(cqw)에 비례하여 폰트 조절 */
         font-size: clamp(1.2rem, 13cqw, 2.5rem); 
         line-height: 1.2;
     }
     
-    /* 4. 숫자 박스 (KPI Box) */
+    /* 4. KPI 박스 디자인 */
     .big-number-box {
         background-color: #1F2937; padding: 2vw; border-radius: 12px;
         border: 1px solid #374151; text-align: center; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
@@ -62,7 +58,6 @@ st.markdown("""
     .big-number-label { color: #E5E7EB; font-weight: 600; white-space: nowrap; font-size: clamp(0.8rem, 5cqw, 1.2rem); margin-bottom: 5px; }
     .big-number-value { color: #FAFAFA; font-weight: 800; line-height: 1.1; white-space: nowrap; font-size: clamp(1.2rem, 15cqw, 3.5rem); }
     
-    /* 5. 서브 텍스트 & 색상 */
     .sub-text-wrapper { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
     .sub-text-positive { color: #4ADE80; font-weight: bold; font-size: clamp(0.7rem, 4cqw, 1rem); margin-top: 5px; }
     .sub-text-negative { color: #FF7F50; font-weight: bold; font-size: clamp(0.7rem, 4cqw, 1rem); margin-top: 5px; }
@@ -70,28 +65,61 @@ st.markdown("""
     .val-positive { color: #34D399; } 
     .val-negative { color: #F87171; } 
 
-    /* 6. 경고/안전 박스 */
+    /* 5. 경고/안전 박스 */
     .warning-box { background-color: #450a0a; color: #fca5a5; padding: 20px; border-radius: 12px; border-left: 8px solid #ef4444; margin-top: 20px; line-height: 1.5; font-size: clamp(0.9rem, 1.5vw, 1.2rem); }
     .safe-box { background-color: #064e3b; color: #6ee7b7; padding: 20px; border-radius: 12px; border-left: 8px solid #10b981; margin-top: 20px; line-height: 1.5; font-size: clamp(0.9rem, 1.5vw, 1.2rem); }
     
-    /* 7. 라벨 강제 조정 */
+    /* 6. 라벨 강제 조정 */
     .stSlider label p, .stNumberInput label p, .stToggle label p, .stTextInput label p, .stTextArea label p {
         font-size: clamp(0.8rem, 1.2vw, 1.1rem) !important;
         white-space: nowrap !important;
     }
 
-    /* [수정됨] 8. 체크박스 폰트 사이드바 폭 연동 (한 줄 유지) */
+    /* 7. 체크박스 폰트 사이드바 폭 연동 (한 줄 유지) */
     .stCheckbox label p {
-        /* cqw 단위 사용: 사이드바 너비의 4.5% 크기로 자동 조절 */
         font-size: clamp(11px, 4.5cqw, 14px) !important;
-        white-space: nowrap !important; /* 줄바꿈 절대 방지 */
+        white-space: nowrap !important; 
         width: 100%;
         overflow: visible;
+    }
+
+    /* 8. [모바일 전용 설정] */
+    @media (max-width: 768px) {
+        /* 사이드바가 닫혀있을 때 보이는 '화살표' 버튼 개조 -> '메뉴 펼치기' */
+        [data-testid="stSidebarCollapsedControl"] {
+            width: auto !important; 
+            min-width: 130px !important; 
+            background-color: #1F2937 !important; 
+            border: 2px solid #4CAF50 !important; 
+            border-radius: 8px !important;
+            padding: 5px 10px !important;
+            display: flex !important;
+            align-items: center !important;
+            color: #FFFFFF !important;
+            margin-top: 5px !important;
+        }
+        /* 버튼 옆에 '메뉴 펼치기' 텍스트 추가 */
+        [data-testid="stSidebarCollapsedControl"]::after {
+            content: "메뉴 펼치기"; 
+            font-size: 14px;
+            color: #4CAF50; 
+            font-weight: bold;
+            margin-left: 8px;
+            white-space: nowrap;
+        }
+        
+        /* 모바일 레이아웃 강제 세로 정렬 */
+        [data-testid="stHorizontalBlock"] { flex-direction: column !important; gap: 10px !important; }
+        [data-testid="column"] { width: 100% !important; flex: 1 1 auto !important; min-width: unset !important; }
+        .big-number-box { min-height: 100px !important; padding: 15px !important; }
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- [함수] 계산 엔진 ---
+
+# ==========================================
+# 3. 함수 정의 (계산 및 전송)
+# ==========================================
 def calculate_tax(tax_base):
     if tax_base <= 0: return 0
     elif tax_base <= 100000000: return tax_base * 0.1
@@ -104,7 +132,18 @@ def format_krw_display(value):
     eok = value / 100000000
     return f"{eok:,.1f}억"
 
-# --- [UI] 사이드바 ---
+def send_consultation(name, phone, memo):
+    """상담 신청 데이터를 GAS로 전송"""
+    try:
+        payload = {"name": name, "phone": phone, "memo": memo}
+        response = requests.post(GAS_URL, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
+        return response.status_code == 200
+    except: return False
+
+
+# ==========================================
+# 4. 사이드바 UI (입력 및 상담폼)
+# ==========================================
 with st.sidebar:
     st.markdown("""
         <div class="sidebar-container">
@@ -144,49 +183,32 @@ with st.sidebar:
 
     st.markdown("---")
 
-    # 4. 상담 신청 폼
+    # 4. [복원] 사이드바 상담 신청 폼 (항상 표시)
     st.markdown("### ⛳ Premium 상담 신청")
     
-    with st.form("consultation_form"): 
+    with st.form("consultation_form_sidebar"): 
         st.caption("Wannabe Tax 전문가가 귀하만의 1:1 맞춤 절세 리포트를 제공해 드립니다.")
         
-        user_name = st.text_input("성함", placeholder="예: 홍길동")
-        user_phone = st.text_input("연락처", placeholder="예: 010-1234-5678")
-        user_memo = st.text_area("문의사항 (선택)", placeholder="궁금하신 점을 자유롭게 남겨주세요.")
+        sb_name = st.text_input("성함", placeholder="예: 홍길동", key="sb_name")
+        sb_phone = st.text_input("연락처", placeholder="예: 010-1234-5678", key="sb_phone")
+        sb_memo = st.text_area("문의사항 (선택)", placeholder="내용 입력", key="sb_memo")
+        sb_agree = st.checkbox("개인정보 수집 동의 (필수)", key="sb_agree")
         
-        agreement = st.checkbox("개인정보 수집 및 이용에 동의합니다. (필수)")
-        
-        submitted = st.form_submit_button("🚀 무료 상담 신청하기", use_container_width=True)
-
-        if submitted:
-            if not user_name or not user_phone:
-                st.error("⚠️ 성함과 연락처를 모두 입력해주세요.")
-            elif not agreement:
-                st.warning("⚠️ 개인정보 수집 및 이용에 동의해주셔야 합니다.")
+        if st.form_submit_button("🚀 상담 신청하기", use_container_width=True):
+            if not sb_name or not sb_phone:
+                st.error("⚠️ 성함과 연락처를 입력해주세요.")
+            elif not sb_agree:
+                st.warning("⚠️ 개인정보 동의가 필요합니다.")
             else:
-                try:
-                    payload = {
-                        "name": user_name,
-                        "phone": user_phone,
-                        "memo": user_memo
-                    }
-                    response = requests.post(
-                        GAS_URL, 
-                        data=json.dumps(payload),
-                        headers={'Content-Type': 'application/json'}
-                    )
-                    
-                    if response.status_code == 200:
-                        st.balloons() 
-                        st.success(f"✅ {user_name}님, 신청이 완료되었습니다! 담당자가 곧 연락드리겠습니다.")
-                    else:
-                        st.error("❌ 전송에 실패했습니다. 잠시 후 다시 시도해주세요.")
-                        
-                except Exception as e:
-                    st.error(f"오류가 발생했습니다: {e}")
+                if send_consultation(sb_name, sb_phone, sb_memo):
+                    st.balloons()
+                    st.success(f"✅ {sb_name}님, 신청되었습니다!")
+                else: st.error("❌ 전송 실패")
 
 
-# --- [로직] 초기 계산 (현재 시점) ---
+# ==========================================
+# 5. 로직 및 계산
+# ==========================================
 basic_deduction = 500000000 
 spouse_deduction = 0
 
@@ -200,7 +222,6 @@ if has_spouse:
 tax_base_1_now = total_estate - basic_deduction - spouse_deduction
 tax_1_now = calculate_tax(tax_base_1_now)
 
-# --- [로직] 시뮬레이션 및 그래프 데이터 생성 ---
 years = list(range(sim_years + 1))
 assets_re = []
 assets_fin = []
@@ -249,7 +270,9 @@ liquidity_crisis = True if crisis_year is not None else False
 shortage = final_tax_simulated - final_financial_simulated if liquidity_crisis else 0
 
 
-# --- [메인 리포트 UI] ---
+# ==========================================
+# 6. 메인 리포트 UI
+# ==========================================
 st.markdown("""
     <div class="title-container">
         <div class="responsive-title">⛳ Wannabe Tax Simulation</div>
@@ -259,7 +282,6 @@ st.markdown("---")
 
 col1, col2, col3 = st.columns(3)
 
-# 1. 왼쪽 박스
 with col1:
     deduction_msg = "✅ 배우자 공제 적용" if has_spouse else "ℹ️ 일괄 공제만 적용"
     st.markdown(f"""
@@ -270,7 +292,6 @@ with col1:
         </div>
     """, unsafe_allow_html=True)
 
-# 2. 가운데 박스
 with col2:
     if has_spouse:
         box_label = f"2차 상속세 ({sim_years}년 후)"
@@ -287,7 +308,6 @@ with col2:
         </div>
     """, unsafe_allow_html=True)
 
-# 3. 오른쪽 박스
 with col3:
     if has_spouse:
         total_burden = tax_1_now + final_tax_simulated
@@ -352,7 +372,9 @@ else:
     """, unsafe_allow_html=True)
 
 
-# --- [차트] 시각화 ---
+# ==========================================
+# 7. 차트 시각화
+# ==========================================
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(f"### 🎯 {simulation_title}")
 st.caption(simulation_desc)
@@ -368,65 +390,53 @@ fig = go.Figure()
 
 # 1. 배경: 총 자산
 fig.add_trace(go.Scatter(
-    x=df_chart["Year"], 
-    y=df_chart["RealEstate"] + df_chart["Financial"],
-    mode='lines', 
-    name='총 자산',
+    x=df_chart["Year"], y=df_chart["RealEstate"] + df_chart["Financial"],
+    mode='lines', name='총 자산',
     line=dict(width=1, color='rgba(160, 160, 160, 0.5)'),
-    fill='tozeroy', 
-    fillcolor='rgba(128, 128, 128, 0.3)',
+    fill='tozeroy', fillcolor='rgba(128, 128, 128, 0.3)',
     hoverinfo='skip'
 ))
 
-# 2. 기준선: 금융자산
+# 2. 기준선: 금융자산 (보유 현금)
 fig.add_trace(go.Scatter(
-    x=df_chart["Year"], 
-    y=df_chart["Financial"],
-    mode='lines', 
-    name='보유 현금',
+    x=df_chart["Year"], y=df_chart["Financial"],
+    mode='lines', name='보유 현금',
     line=dict(width=4, color='#00BFFF', dash='solid'),
+    hovertemplate='보유현금: %{y:.1f}억<extra></extra>'
 ))
 
 # 3. 막대: 상속세
 fig.add_trace(go.Bar(
-    x=df_chart["Year"], 
-    y=df_chart["Tax"],
+    x=df_chart["Year"], y=df_chart["Tax"],
     name='예상 상속세',
-    marker_color='#EF4444', 
-    opacity=0.9,
-    hovertemplate='%{y:.1f}억 원<extra></extra>'
+    marker_color='#EF4444', opacity=0.9,
+    hovertemplate='예상상속세: %{y:.1f}억<extra></extra>'
 ))
 
-# 4. 핀포인트 (위기 발생 시점)
+# 4. 핀포인트 텍스트 (한 줄로 표시)
 if liquidity_crisis and crisis_year is not None:
     crisis_tax_val = df_chart.loc[crisis_year, "Tax"]
     fig.add_annotation(
         x=crisis_year,
         y=crisis_tax_val,
-        text=f"🚨 <b>{crisis_year}년 후<br>고갈!</b>",
-        showarrow=True,
-        arrowhead=2,
-        arrowsize=2.0,
-        arrowwidth=2,
-        arrowcolor="#FFFF00",
-        ax=0,
-        ay=-50,
-        bgcolor="#EF4444",
-        bordercolor="#FFFF00",
+        text=f"🚨 <b>{crisis_year}년 후 고갈!</b>",
+        showarrow=True, arrowhead=2, arrowsize=2.0, arrowwidth=2, arrowcolor="#FFFF00",
+        ax=0, ay=-50, bgcolor="#EF4444", bordercolor="#FFFF00",
         font=dict(size=16, color="white", family="Helvetica")
     )
 
+# 차트 레이아웃 (줌/팬 방지 포함)
 fig.update_layout(
-    template="plotly_dark",
-    height=550,
+    template="plotly_dark", height=550,
     hovermode="x unified",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
-    xaxis=dict(title="경과 기간 (년)", tickmode='linear', tick0=0, dtick=5, showgrid=True, gridcolor='#374151'),
-    yaxis=dict(title="금액 (단위: 십억 원)", tickformat=".1f", showgrid=True, gridcolor='#374151'),
+    xaxis=dict(title="경과 기간 (년)", fixedrange=True, tickmode='linear', tick0=0, dtick=5, showgrid=True, gridcolor='#374151'),
+    yaxis=dict(title="금액 (단위: 십억 원)", fixedrange=True, tickformat=".1f", showgrid=True, gridcolor='#374151'),
+    dragmode=False,
     margin=dict(t=80, b=50),
 )
 
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
 st.info("""
 💡 **그래프 해석 가이드**:
