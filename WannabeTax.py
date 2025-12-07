@@ -373,7 +373,7 @@ else:
 
 
 # ==========================================
-# 7. 차트 시각화
+# 7. 차트 시각화 (호환성 강화: 여백 확보 및 폰트 변경)
 # ==========================================
 st.markdown("<br><br>", unsafe_allow_html=True)
 st.markdown(f"### 🎯 {simulation_title}")
@@ -413,27 +413,34 @@ fig.add_trace(go.Bar(
     hovertemplate='예상상속세: %{y:.1f}억<extra></extra>'
 ))
 
-# 4. 핀포인트 텍스트 (한 줄로 표시)
+# 4. 핀포인트 텍스트 (호환성 개선)
 if liquidity_crisis and crisis_year is not None:
     crisis_tax_val = df_chart.loc[crisis_year, "Tax"]
     fig.add_annotation(
         x=crisis_year,
         y=crisis_tax_val,
+        # [수정] 줄바꿈 없이 한 줄로 표시
         text=f"🚨 <b>{crisis_year}년 후 고갈!</b>",
+        # [수정] ay 값을 -50에서 -40으로 조정하여 너무 위로 뜨지 않게 함
         showarrow=True, arrowhead=2, arrowsize=2.0, arrowwidth=2, arrowcolor="#FFFF00",
-        ax=0, ay=-50, bgcolor="#EF4444", bordercolor="#FFFF00",
-        font=dict(size=16, color="white", family="Helvetica")
+        ax=0, ay=-40, bgcolor="#EF4444", bordercolor="#FFFF00",
+        # [수정] 폰트 호환성을 위해 구체적 폰트명(Helvetica) 대신 시스템 기본(sans-serif) 사용
+        font=dict(size=15, color="white", family="sans-serif")
     )
 
-# 차트 레이아웃 (줌/팬 방지 포함)
+# 차트 레이아웃 (여백 확보 및 잠금)
 fig.update_layout(
     template="plotly_dark", height=550,
     hovermode="x unified",
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+    
+    # [수정] 위쪽 여백(t)을 80 -> 120으로 대폭 늘려 텍스트 잘림 방지
+    margin=dict(t=120, b=50, l=20, r=20),
+    
+    # 줌/팬 잠금 (fixedrange=True)
     xaxis=dict(title="경과 기간 (년)", fixedrange=True, tickmode='linear', tick0=0, dtick=5, showgrid=True, gridcolor='#374151'),
     yaxis=dict(title="금액 (단위: 십억 원)", fixedrange=True, tickformat=".1f", showgrid=True, gridcolor='#374151'),
     dragmode=False,
-    margin=dict(t=80, b=50),
 )
 
 st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
@@ -444,3 +451,11 @@ st.info("""
 2. **파란 선**: 세금 낼 수 있는 현금 능력
 3. **빨간 막대**: 자녀가 낼 세금 (빨간 막대가 파란 선을 넘으면 위험)
 """)
+# --------------------------------------------------------------------------
+# [NEW] Footer (기업 정보)
+# --------------------------------------------------------------------------
+st.markdown("""
+    <div style='text-align: center; margin-top: 50px; color: #888; font-size: 12px; font-weight: 500;'>
+        Korea Financial Investment Technology(KFIT)® / WannabeDream®
+    </div>
+""", unsafe_allow_html=True)
