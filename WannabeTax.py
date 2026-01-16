@@ -136,9 +136,20 @@ def send_consultation(name, phone, memo):
     """상담 신청 데이터를 GAS로 전송"""
     try:
         payload = {"name": name, "phone": phone, "memo": memo}
-        response = requests.post(GAS_URL, data=json.dumps(payload), headers={'Content-Type': 'application/json'})
+        response = requests.post(
+            GAS_URL,
+            data=json.dumps(payload),
+            headers={'Content-Type': 'application/json'},
+            timeout=10,
+        )
         return response.status_code == 200
     except: return False
+
+def ui_toggle(label, value=True):
+    """Streamlit 버전 호환: toggle이 없으면 checkbox로 대체."""
+    if hasattr(st, "toggle"):
+        return st.toggle(label, value=value)
+    return st.checkbox(label, value=value)
 
 
 # ==========================================
@@ -162,7 +173,7 @@ with st.sidebar:
     
     # 2. 가정 설정
     st.markdown("### 2️⃣ 시뮬레이션 가정")
-    has_spouse = st.toggle("배우자 생존 여부", value=True)
+    has_spouse = ui_toggle("배우자 생존 여부", value=True)
     
     if has_spouse:
         slider_years_label = "배우자 예상 생존 기간 (년)"
